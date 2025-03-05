@@ -11,7 +11,7 @@ module Top_Student(
 
     wire frame_begin, sending_pixels,sample_pixel;
     wire [12:0] pixel_index;
-    wire [15:0] oled_data;
+    reg [15:0] oled_data;
 
     Oled_Display oled_inst ( 
         .clk(clk_mhz_6_25),
@@ -48,6 +48,8 @@ module Top_Student(
     reg ring_active = 0;
     reg [7:0] outer_dia = 30;  // Initial outer diameter
     wire [7:0] inner_dia = outer_dia - 5;
+    wire[7:0] outer_radius = outer_dia / 2;
+    wire[7:0] inner_radius = inner_dia / 2;
 
     wire[x_width-1:0] x;
     wire[y_width-1:0] y;
@@ -55,6 +57,8 @@ module Top_Student(
     assign y = pixel_index / 96;
 
     wire in_border;
+    wire in_excluded_area = (x < BORDER_DISTANCE || x >= 96 - BORDER_DISTANCE || y < BORDER_DISTANCE || y >= 64 - BORDER_DISTANCE);
+    //if x is within 0 and 4 or 92 and 96 or y is within 0 and 4 or 60 and 64, then it is not in border
     assign in_border = (
         (x >= BORDER_DISTANCE && x< BORDER_DISTANCE + BORDER_THICKNESS) ||
         (x >= 96 - BORDER_DISTANCE - BORDER_THICKNESS && x < 96 - BORDER_DISTANCE) ||
@@ -67,12 +71,14 @@ module Top_Student(
     wire [31:0] dx_sq = dx * dx;
     wire [31:0] dy_sq = dy * dy;
     wire [31:0] dist_sq = dx_sq + dy_sq;
-    wire [31:0] outer_sq = outer_dia * outer_dia;
-    wire [31:0] inner_sq = (outer_dia - 5) * (outer_dia - 5);
+    wire [31:0] outer_sq = outer_radius * outer_radius;
+    wire [31:0] inner_sq = (outer_radius - 5) * (outer_radius - 5);
     wire in_ring = (dist_sq <= outer_sq) && (dist_sq >= inner_sq);
 
     always @(posedge clk_mhz_6_25) begin
-        if(in_border) begin
+        if (in_excluded_area) begin
+            oled_data <= COLOR_BLACK;
+        end else if(in_border) begin
             oled_data <= COLOR_RED;
         end else if(ring_active && in_ring) begin
             oled_data <= COLOR_GREEN;
