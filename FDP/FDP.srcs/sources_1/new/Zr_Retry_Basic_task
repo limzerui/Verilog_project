@@ -1,0 +1,23 @@
+module top(
+    input clk_50MHz,
+    input reset,
+    input center_btn,
+    input up_btn,
+    input down_btn,
+    output cs,
+    output sdin,
+    output sclk,
+    output d_cn,
+    output resn,
+    output vccen,
+    output pmoden
+);
+
+endmodule
+
+module ClockDivider(
+    input clk_50MHz,
+    output reg clk_6_25MHz
+)
+    
+endmodule
