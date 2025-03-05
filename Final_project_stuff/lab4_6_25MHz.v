@@ -62,20 +62,19 @@ module Top_Student(
         (y >= 64 - BORDER_DISTANCE - BORDER_THICKNESS && y < 64 - BORDER_DISTANCE)
     );
 
-    wire [15:0] dx = x - x_center;
-    wire [15:0] dy = y - y_center;
+    wire [15:0] dx = (x > x_center) ? (x - x_center) : (x_center - x);
+    wire [15:0] dy = (y > y_center) ? (y - y_center) : (y_center - y);
     wire [31:0] dx_sq = dx * dx;
     wire [31:0] dy_sq = dy * dy;
     wire [31:0] dist_sq = dx_sq + dy_sq;
-    wire [31:0] dist_sq_4 = dist_sq <<2;
     wire [31:0] outer_sq = outer_dia * outer_dia;
     wire [31:0] inner_sq = (outer_dia - 5) * (outer_dia - 5);
-    wire in_ring = (dist_sq_4 <= outer_sq) && (dist_sq_4 >= inner_sq);
+    wire in_ring = (dist_sq <= outer_sq) && (dist_sq >= inner_sq);
 
     always @(posedge clk_mhz_6_25) begin
         if(in_border) begin
             oled_data <= COLOR_RED;
-        end else if(in_ring) begin
+        end else if(ring_active && in_ring) begin
             oled_data <= COLOR_GREEN;
         end else begin
             oled_data <= COLOR_BLACK;
