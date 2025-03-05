@@ -48,8 +48,8 @@ module Top_Student(
     reg ring_active = 0;
     reg [7:0] outer_dia = 30;  // Initial outer diameter
     wire [7:0] inner_dia = outer_dia - 5;
-    wire[7:0] outer_radius = outer_dia>>1;
-    wire[7:0] inner_radius = inner_dia>>1;
+    //wire[7:0] outer_radius = outer_dia>>1;
+    //wire[7:0] inner_radius = inner_dia>>1;
 
     wire[x_width-1:0] x;
     wire[y_width-1:0] y;
@@ -71,9 +71,10 @@ module Top_Student(
     wire [31:0] dx_sq = dx * dx;
     wire [31:0] dy_sq = dy * dy;
     wire [31:0] dist_sq = dx_sq + dy_sq;
-    wire [31:0] outer_sq = outer_radius * outer_radius;
-    wire [31:0] inner_sq = inner_radius * inner_radius;
-    wire in_ring = (dist_sq <= outer_sq) && (dist_sq >= inner_sq);
+    wire[31:0] dist_sq_4 = dist_sq << 2;
+    wire [31:0] outer_dia_sq = outer_dia * outer_dia;
+    wire [31:0] inner_dia_sq = (outer_dia - 5) * (outer_dia - 5);
+    wire in_ring = (dist_sq_4 <= outer_dia_sq) && (dist_sq_4 >= inner_dia_sq);
 
     always @(posedge clk_mhz_6_25) begin
         if (in_excluded_area) begin
