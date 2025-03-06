@@ -1,6 +1,6 @@
 
 module task_4a(
-  input clk_6p25M, btnU, btnD, btnL, btnR, btnC, input [12:0] pixel_index, output reg [15:0] oled_data
+  input clk_6p25M, btnU, btnD, btnL, btnR, btnC, reset_A, input [12:0] pixel_index, output reg [15:0] oled_data
 );
 
     localparam pixel_index_width = $clog2(96*64);
@@ -80,7 +80,10 @@ module task_4a(
     );
 
     always @(posedge clk_6p25M) begin
-            if(center_pressed && !ring_active) begin
+            if(reset_A) begin
+                ring_active <= 0;
+                outer_dia <= 30;
+            end else if(center_pressed && !ring_active) begin
                 ring_active <= 1;
             end else if(up_pressed && ring_active) begin
                 if (outer_dia <= 45) outer_dia <= outer_dia +5;
@@ -154,14 +157,10 @@ endmodule
 //turn on led[n] when sw[n] is pressed. i have 15 led and sw
 module led_switch(
   input clk, [15:0]sw,
-  output reg [15:0] led
+  output [15:0] led
 );
-    reg [15:0] sw_reg;
-    always @(posedge clk) begin
-        sw_reg <= sw;
-        led <= sw_reg;
-    end
-    endmodule
+    assign led = sw;
+endmodule
 
 module seven_seg_controller(
     input clk,          
