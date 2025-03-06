@@ -175,3 +175,64 @@ module clk_divider(
     end else count <= count + 1;
   end
 endmodule
+
+
+
+//turn on led[n] when sw[n] is pressed. i have 15 led and sw
+module led_switch(
+  input clk, [15:0]sw,
+  output reg [15:0] led
+);
+    reg [15:0] sw_reg;
+    always @(posedge clk) begin
+        sw_reg <= sw;
+        led <= sw_reg;
+    end
+    endmodule
+
+module seven_seg_controller(
+    input clk,          
+    output reg [7:0] seg,
+    output reg [3:0] an  
+);
+
+  parameter M = 150000;
+  
+  wire slow_clk;
+  clk_divider cd_inst (
+    .clk(clk),
+    .m(M),
+    .slow_clk(slow_clk)
+  );
+  
+  reg [1:0] digit;
+  
+  always @(posedge slow_clk) begin
+    digit <= digit + 1;
+  end
+  
+  always @(*) begin
+    case(digit)
+      2'b00: begin
+        an  = 4'b1110;  
+        seg = 8'b11111001;//1, B and C are on
+      end
+      2'b01: begin
+        an  = 4'b1101;  
+        seg = 8'b11111001; //1 
+      end
+      2'b10: begin
+        an  = 4'b1011;    // Enable anode 2
+        seg = 8'b00110000; //display 3 and the dp
+      end
+      2'b11: begin
+        an  = 4'b0111;    // Enable anode 3
+        seg = 8'b1001111; //1001 0010
+      end
+      default: begin
+        an  = 4'b1111;
+        seg = 8'b1111111;
+      end
+    endcase
+  end
+endmodule
