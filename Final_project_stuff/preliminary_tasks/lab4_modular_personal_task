@@ -1,11 +1,8 @@
 
 module task_4a(
-  input clk_6p25M, btnU, btnD, btnL, btnR, btnC, reset_A, input [12:0] pixel_index, output reg [15:0] oled_data
+  input clk_6p25M, btnU, btnD, btnL, btnR, btnC, reset_A, input[6:0]x, input[5:0]y, output reg [15:0] oled_data
 );
 
-    localparam pixel_index_width = $clog2(96*64);
-    localparam x_width = $clog2(96);
-    localparam y_width = $clog2(64);
     localparam x_center = 96/2;
     localparam y_center = 64/2;
 
@@ -23,11 +20,6 @@ module task_4a(
     wire [7:0] inner_dia = outer_dia - 5;
     //wire[7:0] outer_radius = outer_dia>>1;
     //wire[7:0] inner_radius = inner_dia>>1;
-
-    wire[x_width-1:0] x;
-    wire[y_width-1:0] y;
-    assign x = pixel_index % 96;
-    assign y = pixel_index / 96;
 
     wire in_border;
     wire in_excluded_area = (x < BORDER_DISTANCE || x >= 96 - BORDER_DISTANCE || y < BORDER_DISTANCE || y >= 64 - BORDER_DISTANCE);
@@ -176,7 +168,7 @@ module seven_seg_controller(
     .m(M),
     .slow_clk(slow_clk)
   );
-  
+
   reg [1:0] digit;
   
   always @(posedge slow_clk) begin
