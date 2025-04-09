@@ -135,5 +135,6 @@ module led_controller(
         led[10] <= key_state[8'h1E]; // 2 key
         led[11] <= key_state[8'h26]; // 3 key
         led[12] <= key_state[8'h25]; // 4 key
+        
     end
 endmodule

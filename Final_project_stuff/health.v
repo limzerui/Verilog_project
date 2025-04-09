@@ -8,7 +8,7 @@ module top_module(
     reg [6:0] number;   
     
     initial begin
-        number = 100;     
+        number = 80;     
     end
 
     seven_seg_controller ssc (
@@ -157,6 +157,8 @@ module blink_clk_divider(
     output reg SLOW_CLOCK
 );
     
+    // For 5Hz with 100MHz input clock: 100,000,000 / (2*5) = 10,000,000
+    // For simulation or lower frequency base clocks, adjust accordingly
     reg [23:0] COUNT;
     
     initial begin
@@ -165,7 +167,7 @@ module blink_clk_divider(
     end
     
     always @(posedge CLOCK) begin
-        if (COUNT == 9999999) begin 
+        if (COUNT == 9999999) begin  // For 5Hz (adjust if your base clock differs)
             SLOW_CLOCK <= ~SLOW_CLOCK;
             COUNT <= 0;
         end
@@ -182,6 +184,7 @@ module led_health_indicator(
     output reg [7:0] led
 );
     
+    // 5Hz clock for blinking when health < 20
     wire blink_clk;
     blink_clk_divider bcd(
         .CLOCK(clk),
@@ -190,14 +193,17 @@ module led_health_indicator(
     
     reg blink_state;
     
+    // Initialize blink state
     initial begin
         blink_state = 0;
     end
     
+    // Update blink state at 5Hz
     always @(posedge blink_clk) begin
         blink_state <= ~blink_state;
     end
     
+    // LED control based on health
     always @(*) begin
         if (health < 20) begin
             // Health critical - all LEDs blink at 5Hz
