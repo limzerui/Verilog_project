@@ -1,21 +1,55 @@
-module game_character_health(
-    input clk,
-    input [6:0] data,        // {1'b0, character_reg[1:0], health_reg[3:0]}
-    output [7:0] seg,        // 7-segment display
-    output [3:0] an,         // 7-segment display anode
-    output [7:0] led,        // LED outputs
-    output [7:0] JB          // PMOD JB ports for OLED
+module top_module(
+    input clk,              // Board clock
+    input [5:0] sw,         // Switches: sw[5:4] for character, sw[3:0] for health
+    input master,
+    output [7:0] seg,       // 7-segment display segments
+    output [3:0] an,        // 7-segment display anodes
+    output [15:0] led,       // LEDs for health indication
+    output [7:0] JB         // PMOD JB for OLED
 );
     
-    // Extract fields from data input
-    wire [1:0] character_type = data[5:4];  // Character type (2 bits)
-    wire [3:0] health_value = data[3:0];    // Health value (4 bits, 0-10)
 
-    //--------------------------------------------------------------------------
-    // OLED Display for Character
-    //--------------------------------------------------------------------------
+    wire [6:0] this_player_packet = {1'b0, sw[5:4], sw[3:0]};
+    wire [6:0] received_packet = 7'b0000000;
+    
+    // Instantiate the game_character_health module
+    game_character_health gch(
+        .clk(clk),
+        .this_player_packet(this_player_packet),
+        .received_packet(received_packet),
+        .master(master),
+        .seg(seg),
+        .an(an),
+        .led(led),
+        .JB(JB)
+    );
+    
+endmodule
+
+module game_character_health(
+    input clk,
+    input [6:0] this_player_packet,  // Data from this player
+    input [6:0] received_packet,     // Data received from other player
+    input master,                   // Selection bit (1=master, 0=slave)
+    output [7:0] seg,               // 7-segment display
+    output [3:0] an,                // 7-segment display anode
+    output [15:0] led,              // LED outputs
+    output [7:0] JB                 // PMOD JB ports for OLED
+);
+    
+    // Select which packet to use based on master bit
+    wire [6:0] active_packet = master ? this_player_packet : received_packet;
+    
+    // Extract fields from active packet
+    wire [1:0] character_type = active_packet[5:4];  // Character type (2 bits)
+    wire [3:0] health_value = active_packet[3:0];    // Health value (4 bits, 0-10)
+
     wire clk6p25m;
-    slowclock oled_clock (clk, 32'd7, clk6p25m);
+    generic_timer #(.COUNT_MAX(7))
+    oled_clock (
+        .clk(clk),
+        .clk_out(clk6p25m)
+    );
     
     reg [15:0] oled_data;
     wire frame_begin, sendingpixels, samplepixel;
@@ -101,9 +135,6 @@ module game_character_health(
         endcase
     end
     
-    //--------------------------------------------------------------------------
-    // 7-Segment Health Display
-    //--------------------------------------------------------------------------
     seven_seg_controller health_display (
         .clk(clk),
         .number({3'b000, health_value}),  // Convert 4-bit health to 7-bit number
@@ -111,44 +142,16 @@ module game_character_health(
         .an(an)
     );
     
-    //--------------------------------------------------------------------------
-    // LED Health Indicator (10-health LEDs lit, flash when health = 1)
-    //--------------------------------------------------------------------------
     wire [3:0] led_count = 4'd10 - health_value;  // Calculate how many LEDs to light
     
     led_health_indicator led_display (
         .clk(clk),
-        .health({3'b000, led_count}),  // Using the 10-health value
+        .health(health_value),  // Using the 10-health value
         .led(led)
     );
     
 endmodule
 
-//--------------------------------------------------------------------------
-// Support modules from ahmed-9apr.v
-//--------------------------------------------------------------------------
-module slowclock(
-    input clk,
-    input [31:0] m,
-    output reg CLOCK
-);
-    reg [31:0] COUNT;
-
-    initial begin
-        CLOCK = 0;
-        COUNT = 0;
-    end
-
-    always @ (posedge clk) begin
-        if (COUNT == m) begin
-            CLOCK <= ~CLOCK;
-            COUNT <= 0;
-        end
-        else begin
-            COUNT <= COUNT + 1;
-        end
-    end
-endmodule
 
 module xyconverter(
     input [12:0] pixelindex, 
@@ -159,9 +162,6 @@ module xyconverter(
     assign y = pixelindex / 96;
 endmodule
 
-//--------------------------------------------------------------------------
-// Modified modules from health.v
-//--------------------------------------------------------------------------
 module seven_seg_controller(
     input clk,            
     input [6:0] number,   
@@ -169,9 +169,10 @@ module seven_seg_controller(
     output reg [3:0] an   
 );
     wire animation_clk;
-    clk_divider cd(
-        clk,
-        animation_clk);   
+    generic_timer #(.COUNT_MAX(149999) ) seven_seg_timer (
+    .clk(clk),
+    .clk_out(animation_clk)
+);
 
     reg [1:0] digit;       
     reg [3:0] digit_value [3:0]; 
@@ -234,59 +235,42 @@ module seven_seg_controller(
     endfunction
 endmodule
 
-module clk_divider(
-    input CLOCK,
-    output reg SLOW_CLOCK3
+
+module generic_timer #(
+    parameter COUNT_MAX = 49999999  // Default for ~1Hz with 100MHz clock
+)(
+    input clk,
+    output reg clk_out
 );
-    reg [18:0] COUNT3;
+    reg [31:0] count;
 
     initial begin
-        SLOW_CLOCK3 = 0;
-        COUNT3 = 0;
+        clk_out = 0;
+        count = 0;
     end
 
-    always @ (posedge CLOCK) begin
-        if (COUNT3 == 149999) begin
-            SLOW_CLOCK3 <= ~SLOW_CLOCK3;
-            COUNT3 <= 0;
+    always @(posedge clk) begin
+        if (count >= COUNT_MAX) begin
+            clk_out <= ~clk_out;
+            count <= 0;
         end
         else begin
-            COUNT3 <= COUNT3 + 1;
-        end
-    end
-endmodule
-
-module blink_clk_divider(
-    input CLOCK,
-    output reg SLOW_CLOCK
-);
-    reg [23:0] COUNT;
-    
-    initial begin
-        SLOW_CLOCK = 0;
-        COUNT = 0;
-    end
-    
-    always @(posedge CLOCK) begin
-        if (COUNT == 9999999) begin  // For 5Hz
-            SLOW_CLOCK <= ~SLOW_CLOCK;
-            COUNT <= 0;
-        end
-        else begin
-            COUNT <= COUNT + 1;
+            count <= count + 1;
         end
     end
 endmodule
 
 module led_health_indicator(
     input clk,
-    input [6:0] health,
-    output reg [7:0] led
+    input [3:0] health,        // Changed to 4-bit (0-10)
+    output reg [15:0] led      // Expanded to 16 LEDs
 );
     wire blink_clk;
-    blink_clk_divider bcd(
-        .CLOCK(clk),
-        .SLOW_CLOCK(blink_clk)
+    generic_timer #(
+        .COUNT_MAX(9999999)    // For 5Hz with 100MHz clock
+    ) blink_timer (
+        .clk(clk),
+        .clk_out(blink_clk)
     );
     
     reg blink_state;
@@ -300,24 +284,27 @@ module led_health_indicator(
     end
     
     always @(*) begin
-        if (health == 4'd9) begin
-            // Health critical (health=1) - 9 LEDs blink at 5Hz
-            led = blink_state ? 8'b11111111 : 8'b00000000;
+        if (health == 4'd0) begin
+            // Health 0 - all LEDs off
+            led = 16'h0000;
+        end
+        else if (health == 4'd1) begin
+            // Health 1 - blink all LEDs
+            led = blink_state ? 16'hFFFF : 16'h0000;
         end
         else begin
-            // Normal health - LEDs light based on health
+            // Show number of LEDs equal to health value
             case (health)
-                4'd0: led = 8'b00000000;  // Health 10, 0 LEDs
-                4'd1: led = 8'b00000001;  // Health 9, 1 LED
-                4'd2: led = 8'b00000011;  // Health 8, 2 LEDs
-                4'd3: led = 8'b00000111;  // Health 7, 3 LEDs
-                4'd4: led = 8'b00001111;  // Health 6, 4 LEDs
-                4'd5: led = 8'b00011111;  // Health 5, 5 LEDs
-                4'd6: led = 8'b00111111;  // Health 4, 6 LEDs
-                4'd7: led = 8'b01111111;  // Health 3, 7 LEDs
-                4'd8: led = 8'b11111111;  // Health 2, 8 LEDs
-                4'd10: led = 8'b11111111; // Health 0, all LEDs (fullly lit)
-                default: led = 8'b00000000;
+                4'd2:  led = 16'h0003;    // 2 LEDs
+                4'd3:  led = 16'h0007;    // 3 LEDs
+                4'd4:  led = 16'h000F;    // 4 LEDs
+                4'd5:  led = 16'h001F;    // 5 LEDs
+                4'd6:  led = 16'h003F;    // 6 LEDs
+                4'd7:  led = 16'h007F;    // 7 LEDs
+                4'd8:  led = 16'h00FF;    // 8 LEDs
+                4'd9:  led = 16'h01FF;    // 9 LEDs
+                4'd10: led = 16'h03FF;    // 10 LEDs
+                default: led = 16'h0000;
             endcase
         end
     end
