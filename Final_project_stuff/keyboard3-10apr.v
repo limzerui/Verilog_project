@@ -6,7 +6,6 @@ module keyboard(
     input         PS2Clk,
     output        tx,
     output        [9:0] game_controls
-
 );
     wire        tready;
     wire        ready;
@@ -97,8 +96,12 @@ module keyboard_controller(
     input             key_valid,
     output reg [9:0]  game_controls  // {p2_attack[1:0], p2_move[2:0], p1_attack[1:0], p1_move[2:0]}
 );
-    // Use a bitmap to track the state of all keys
-    reg [255:0] key_state = 256'b0;
+
+    reg [255:0] key_state = 0;  
+    reg [255:0] prev_key_state = 0;
+    
+    reg [7:0] p1_dir_key = 0;
+    reg [7:0] p2_dir_key = 0;
     
     // Define keys we care about
     localparam W_KEY     = 8'h1D;
@@ -114,7 +117,7 @@ module keyboard_controller(
     localparam RBRACE    = 8'h5B;  // } key
     localparam BSLASH    = 8'h5D;  // \ key
     
-    // Track key states
+        // Track key states
     always @(posedge clk) begin
         if (key_valid) begin
             // Key release event
@@ -126,51 +129,99 @@ module keyboard_controller(
                 key_state[keycode_in[7:0]] <= 1'b1;
             end
         end
+        
+        // Save previous key state for edge detection
+        prev_key_state <= key_state;
+    end
+    
+    // Direction key selection logic with edge detection and priority fallback
+    always @(posedge clk) begin
+        // Player 1 direction key logic
+        
+        // Check for newly pressed keys (rising edge detection)
+        if (!prev_key_state[W_KEY] && key_state[W_KEY])
+            p1_dir_key <= W_KEY;
+        else if (!prev_key_state[A_KEY] && key_state[A_KEY])
+            p1_dir_key <= A_KEY;
+        else if (!prev_key_state[S_KEY] && key_state[S_KEY])
+            p1_dir_key <= S_KEY;
+        else if (!prev_key_state[D_KEY] && key_state[D_KEY])
+            p1_dir_key <= D_KEY;
+        // If current direction key is released, check for fallback
+        else if (p1_dir_key != 0 && !key_state[p1_dir_key]) begin
+            if (key_state[W_KEY])
+                p1_dir_key <= W_KEY;
+            else if (key_state[A_KEY])
+                p1_dir_key <= A_KEY;
+            else if (key_state[S_KEY])
+                p1_dir_key <= S_KEY;
+            else if (key_state[D_KEY])
+                p1_dir_key <= D_KEY;
+            else
+                p1_dir_key <= 8'h00;
+        end
+        
+        // Player 2 direction key logic
+        
+        // Check for newly pressed keys (rising edge detection)
+        if (!prev_key_state[KEY_8] && key_state[KEY_8])
+            p2_dir_key <= KEY_8;
+        else if (!prev_key_state[KEY_4] && key_state[KEY_4])
+            p2_dir_key <= KEY_4;
+        else if (!prev_key_state[KEY_5] && key_state[KEY_5])
+            p2_dir_key <= KEY_5;
+        else if (!prev_key_state[KEY_6] && key_state[KEY_6])
+            p2_dir_key <= KEY_6;
+        // If current direction key is released, check for fallback
+        else if (p2_dir_key != 0 && !key_state[p2_dir_key]) begin
+            if (key_state[KEY_8])
+                p2_dir_key <= KEY_8;
+            else if (key_state[KEY_4])
+                p2_dir_key <= KEY_4;
+            else if (key_state[KEY_5])
+                p2_dir_key <= KEY_5;
+            else if (key_state[KEY_6])
+                p2_dir_key <= KEY_6;
+            else
+                p2_dir_key <= 8'h00;
+        end
     end
 
     // Generate control outputs
     always @(posedge clk) begin
-        // Default state - no movements or attacks
-        game_controls <= 10'b0;
+        // Default state - no attacks
+        game_controls[9:8] <= 2'b00;
+        game_controls[4:3] <= 2'b00;
         
-        // Player 1 Movement (3 bits) - bits [2:0]
-        if (key_state[W_KEY])
-            game_controls[2:0] <= 3'b001;      // Up
-        else if (key_state[A_KEY])
-            game_controls[2:0] <= 3'b010;      // Left
-        else if (key_state[S_KEY])
-            game_controls[2:0] <= 3'b011;      // Down
-        else if (key_state[D_KEY])
-            game_controls[2:0] <= 3'b100;      // Right
-        else
-            game_controls[2:0] <= 3'b000;      // No movement
+        // Player 1 Movement based on direction key
+        case(p1_dir_key)
+            W_KEY: game_controls[2:0] <= 3'b001;
+            A_KEY: game_controls[2:0] <= 3'b010;
+            S_KEY: game_controls[2:0] <= 3'b011;
+            D_KEY: game_controls[2:0] <= 3'b100;
+            default: game_controls[2:0] <= 3'b000;
+        endcase
+        
+        // Player 2 Movement based on direction key
+        case(p2_dir_key)
+            KEY_8: game_controls[7:5] <= 3'b001;
+            KEY_4: game_controls[7:5] <= 3'b010;
+            KEY_5: game_controls[7:5] <= 3'b011;
+            KEY_6: game_controls[7:5] <= 3'b100;
+            default: game_controls[7:5] <= 3'b000;
+        endcase
         
         // Player 1 Attack (2 bits) - bits [4:3]
         if (key_state[E_KEY])
-            game_controls[4:3] <= 2'b01;       // E attack
+            game_controls[4:3] <= 2'b01;
         else if (key_state[SPACE_KEY])
-            game_controls[4:3] <= 2'b10;       // Space attack
-        else
-            game_controls[4:3] <= 2'b00;       // No attack
-        
-        // Player 2 Movement (3 bits) - bits [7:5]
-        if (key_state[KEY_8])
-            game_controls[7:5] <= 3'b001;      // Up
-        else if (key_state[KEY_4])
-            game_controls[7:5] <= 3'b010;      // Left
-        else if (key_state[KEY_5])
-            game_controls[7:5] <= 3'b011;      // Down
-        else if (key_state[KEY_6])
-            game_controls[7:5] <= 3'b100;      // Right
-        else
-            game_controls[7:5] <= 3'b000;      // No movement
-        
+            game_controls[4:3] <= 2'b10;
+            
         // Player 2 Attack (2 bits) - bits [9:8]
         if (key_state[RBRACE])
-            game_controls[9:8] <= 2'b01;       // } attack
+            game_controls[9:8] <= 2'b01;
         else if (key_state[BSLASH])
-            game_controls[9:8] <= 2'b10;       // \ attack
-        else
-            game_controls[9:8] <= 2'b00;       // No attack
+            game_controls[9:8] <= 2'b10;
     end
+    
 endmodule

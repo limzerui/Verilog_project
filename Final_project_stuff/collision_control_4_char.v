@@ -61,8 +61,7 @@ initial begin
     yfistman = 6'd40;
 
     //addition
-    debounce_counter = 8'd10; // Set to appropriate deb
-    debounce_active = 0;
+
 end
 
 reg [7:0] debounce_counter;   
@@ -90,27 +89,32 @@ always @(posedge clk) begin
     CLK50MHZ <= ~CLK50MHZ;
 end
 
-reg [6:0] test_x;
-reg [5:0] test_y;
-reg [1:0] character_to_move;
-wire move_allowed;
+// Add this function to detect collisions between two characters
+function collision;
+    input [6:0] x1;
+    input [5:0] y1;
+    input [6:0] x2;
+    input [5:0] y2;
+    begin
+        collision = (x1 < x2 + CHARACTER_WIDTH) && 
+                   (x1 + CHARACTER_WIDTH > x2) && 
+                   (y1 < y2 + CHARACTER_HEIGHT) && 
+                   (y1 + CHARACTER_HEIGHT > y2);
+    end
+endfunction
 
-CollisionDetector collision_detector (
-    .xmage(xmage),
-    .ymage(ymage),
-    .xgunman(xgunman),
-    .ygunman(ygunman),
-    .xswordman(xswordman),
-    .yswordman(yswordman),
-    .xfistman(xfistman),
-    .yfistman(yfistman),
-    .CHARACTER_WIDTH(CHARACTER_WIDTH),
-    .CHARACTER_HEIGHT(CHARACTER_HEIGHT),
-    .test_x(test_x),
-    .test_y(test_y),
-    .character_to_move(character_to_move),
-    .move_allowed(move_allowed)
-);
+// Add these wire declarations after your character position declarations
+wire mage_gunman_collision, mage_swordman_collision, mage_fistman_collision;
+wire gunman_swordman_collision, gunman_fistman_collision;
+wire swordman_fistman_collision;
+
+// Calculate all possible collisions
+assign mage_gunman_collision = collision(xmage, ymage, xgunman, ygunman);
+assign mage_swordman_collision = collision(xmage, ymage, xswordman, yswordman);
+assign mage_fistman_collision = collision(xmage, ymage, xfistman, yfistman);
+assign gunman_swordman_collision = collision(xgunman, ygunman, xswordman, yswordman);
+assign gunman_fistman_collision = collision(xgunman, ygunman, xfistman, yfistman);
+assign swordman_fistman_collision = collision(xswordman, yswordman, xfistman, yfistman);
 
 // PS2 keyboard receiver
 PS2Receiver keyboard_receiver (
@@ -215,135 +219,7 @@ always @ (posedge debouncingclock) begin
     // end
   // Inside your (posedge debouncingclock) block, replace the movement logic:
 
-else begin
-    // Mage movement with collision detection (WASD)
-    if(key_state[8'h1C] || btnL) begin  // A key (left)
-        // Calculate potential new position
-        if(xmage > 0)
-            next_xmage = xmage - 1;
-        else
-            next_xmage = 0;
 
-    test_x = next_xmage;
-    test_y = ymage;
-    character_to_move = 2'b00; // Mage
-    if(move_allowed) begin
-        xmage <= next_xmage;
-    end
-    magedirection <= 2'b10; // Left
-    end
-    
-    else if (key_state[8'h23] || btnR) begin  // D key (right)
-        if(xmage < xlimit - CHARACTER_WIDTH)
-            next_xmage = xmage + 1;
-        else
-            next_xmage = xlimit - CHARACTER_WIDTH;
-
-        test_x = next_xmage;
-        test_y = ymage;
-        character_to_move = 2'b00; // Mage
-        if(move_allowed) begin
-            xmage <= next_xmage;
-        end
-        magedirection <= 2'b11; // Right
-    end
-            
-    else if (key_state[8'h1D] || btnU) begin  // W key (up)
-        if(ymage > 0)
-            next_ymage = ymage - 1;
-        else
-            next_ymage = 0;
-            
-        test_x = xmage;
-        test_y = next_ymage;
-        character_to_move = 2'b00; // Mage
-        if(move_allowed) begin
-            ymage <= next_ymage;
-        end
-        magedirection <= 2'b00; // Up
-    end
-    
-    else if (key_state[8'h1B] || btnD) begin  // S key (down)
-        if (ymage < ylimit - CHARACTER_HEIGHT)
-            next_ymage = ymage + 1;
-        else
-            next_ymage = ylimit - CHARACTER_HEIGHT;
-            
-        test_x = xmage;
-        test_y = next_ymage;
-        character_to_move = 2'b00; // Mage
-        if(move_allowed) begin
-            ymage <= next_ymage;
-        end
-        magedirection <= 2'b01; // Down
-    end
-    
-    // Gunman movement with collision detection (Numpad)
-    if(key_state[8'h6B]) begin  // 4 key (left)
-        if(xgunman > 0)
-            next_xgunman = xgunman - 1;
-        else
-            next_xgunman = 0;
-
-        test_x = next_xgunman;
-        test_y = ygunman;
-        character_to_move = 2'b01; // Gunman
-        if(move_allowed) begin
-            xgunman <= next_xgunman;
-        end
-        gunmandirection <= 2'b10; // Left
-    end
-    
-    else if (key_state[8'h74]) begin  // 6 key (right)
-        if(xgunman < xlimit - CHARACTER_WIDTH)
-            next_xgunman = xgunman + 1;
-        else
-            next_xgunman = xlimit - CHARACTER_WIDTH;
-        
-        test_x = next_xgunman;
-        test_y = ygunman;
-        character_to_move = 2'b01; // Gunman
-        if(move_allowed) begin
-            xgunman <= next_xgunman;
-        end
-
-        gunmandirection <= 2'b11; // Right
-    end
-
-    else if (key_state[8'h75]) begin  // 8 key (up)
-        if(ygunman > 0)
-            next_ygunman = ygunman - 1;
-        else
-            next_ygunman = 0;
-
-        test_x = xgunman;
-        test_y = next_ygunman;
-        character_to_move = 2'b01; // Gunman
-        if(move_allowed) begin
-            ygunman <= next_ygunman;
-        end
-        gunmandirection <= 2'b00; // Up
-    end
-    
-    else if (key_state[8'h73]) begin  // 5 key (down)
-        if (ygunman < ylimit - CHARACTER_HEIGHT)
-            next_ygunman = ygunman + 1;
-        else
-            next_ygunman = ylimit - CHARACTER_HEIGHT;
-        
-        test_x = xgunman;
-        test_y = next_ygunman;
-        character_to_move = 2'b01; // Gunman
-        if(move_allowed) begin
-            ygunman <= next_ygunman;
-        end
-
-        gunmandirection <= 2'b01; // Down
-    end
-
-    debounce_active <= 1;
-    debounce_counter <= 8'd10;
-end 
 end
 
 wire signed [6:0] xrmage = x - xmage;
@@ -476,82 +352,4 @@ module PS2Receiver(
             oflag <= 0;
         end
     end
-endmodule
-
-module CollisionDetector(
-    input [6:0] xmage, 
-    input [5:0] ymage,
-    input [6:0] xgunman, 
-    input [5:0] ygunman,
-    input [6:0] xswordman, 
-    input [5:0] yswordman,
-    input [6:0] xfistman, 
-    input [5:0] yfistman,
-    input [6:0] CHARACTER_WIDTH,
-    input [5:0] CHARACTER_HEIGHT,
-    
-    // Test position inputs
-    input [6:0] test_x,
-    input [5:0] test_y,
-    input [1:0] character_to_move,  // 00=mage, 01=gunman, 10=swordman, 11=fistman
-    output move_allowed
-);
-
-    // Function to detect collision between two characters
-    function collision;
-        input [6:0] x1;
-        input [5:0] y1;
-        input [6:0] x2;
-        input [5:0] y2;
-        begin
-            collision = (x1 < x2 + CHARACTER_WIDTH) && 
-                       (x1 + CHARACTER_WIDTH > x2) && 
-                       (y1 < y2 + CHARACTER_HEIGHT) && 
-                       (y1 + CHARACTER_HEIGHT > y2);
-        end
-    endfunction
-
-    // Individual collision checks between all characters
-    wire mage_gunman_collision = collision(xmage, ymage, xgunman, ygunman);
-    wire mage_swordman_collision = collision(xmage, ymage, xswordman, yswordman);
-    wire mage_fistman_collision = collision(xmage, ymage, xfistman, yfistman);
-    wire gunman_swordman_collision = collision(xgunman, ygunman, xswordman, yswordman);
-    wire gunman_fistman_collision = collision(xgunman, ygunman, xfistman, yfistman);
-    wire swordman_fistman_collision = collision(xswordman, yswordman, xfistman, yfistman);
-    
-    // Collision check for potential movement
-    reg move_result;
-    
-    always @(*) begin
-        case (character_to_move)
-            2'b00: begin // Mage movement check
-                move_result = !(collision(test_x, test_y, xgunman, ygunman) || 
-                              collision(test_x, test_y, xswordman, yswordman) || 
-                              collision(test_x, test_y, xfistman, yfistman));
-            end
-            
-            2'b01: begin // Gunman movement check
-                move_result = !(collision(test_x, test_y, xmage, ymage) || 
-                              collision(test_x, test_y, xswordman, yswordman) || 
-                              collision(test_x, test_y, xfistman, yfistman));
-            end
-            
-            2'b10: begin // Swordman movement check
-                move_result = !(collision(test_x, test_y, xmage, ymage) || 
-                              collision(test_x, test_y, xgunman, ygunman) || 
-                              collision(test_x, test_y, xfistman, yfistman));
-            end
-            
-            2'b11: begin // Fistman movement check
-                move_result = !(collision(test_x, test_y, xmage, ymage) || 
-                              collision(test_x, test_y, xgunman, ygunman) || 
-                              collision(test_x, test_y, xswordman, yswordman));
-            end
-            
-            default: move_result = 1;
-        endcase
-    end
-    
-    assign move_allowed = move_result;
-    
 endmodule
