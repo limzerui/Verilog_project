@@ -10,22 +10,44 @@ module charactermovement #(
     // Collision detection inputs
     input [9:0] wxcharacter,  // Current x position (input)
     input [9:0] wycharacter,  // Current y position (input)
-    input move_allowed,       // Signal from collision detector
+    input [9:0] wxother1, 
+    input [9:0] wyother1,
+    input [9:0] wxother2, 
+    input [9:0] wyother2,
+    input [9:0] wxother3, 
+    input [9:0] wyother3,
     
     // Outputs
     output reg [1:0] chardirection,
-    output [9:0] xcharacter,  // New x position (output)
-    output [9:0] ycharacter,  // New y position (output)
+    output [9:0] xcharacter,    // New x position (output)
+    output [9:0] ycharacter,     // New y position (output)
     
-    // Test position outputs for collision detection
-    output reg [9:0] test_x,
-    output reg [9:0] test_y,
-    output reg test_active    // Signal when testing a new position
+    input reset
 );
 
-    reg [9:0] x_pos;
-    reg [9:0] y_pos;
+    // Function to detect collision between two objects
+    function collision;
+        input [9:0] x1;
+        input [9:0] y1;
+        input [9:0] width1;
+        input [9:0] height1;
+        input [9:0] x2;
+        input [9:0] y2;
+        input [9:0] width2;
+        input [9:0] height2;
+        begin
+            collision = (x1 < x2 + width2) && 
+                       (x1 + width1 > x2) && 
+                       (y1 < y2 + height2) && 
+                       (y1 + height1 > y2);
+        end
+    endfunction
+
+    reg [2:0] collisions = 3'b000;
+
+    reg [9:0] x_pos = startx, y_pos = starty, test_x = 0, test_y = 0;
     reg wait_for_collisions = 0;
+    reg test_active = 0;
 
     localparam xlimit = 319;
     localparam ylimit = 239;
@@ -33,15 +55,17 @@ module charactermovement #(
     localparam CHARACTER_HEIGHT = 20;
     
     initial begin
-        x_pos = startx;
-        y_pos = starty;
         chardirection = 2'b00;
-        test_active = 0;
     end
     
     always @(posedge debouncingclock) begin
+        if (reset) begin
+            x_pos = startx;
+            y_pos = starty;
+            test_x = 0;
+            test_y = 0;
         // === STEP 1: Handle new button presses ===
-        if (!test_active) begin
+        end else if (!test_active) begin
             if (btnL && x_pos > 0) begin
                 test_x <= x_pos - 1;
                 test_y <= y_pos;
@@ -66,14 +90,22 @@ module charactermovement #(
                 test_active <= 1;
                 chardirection <= 2'b01; // Down
             end
+            collisions <= 3'b000;
             wait_for_collisions <= 1;
         end else begin
             // === STEP 2: Wait for collision to be calculated ===
             if (wait_for_collisions) begin
+                collisions[0] <= collision(test_x, test_y, CHARACTER_WIDTH, CHARACTER_HEIGHT, 
+                    wxother1, wyother1, CHARACTER_WIDTH, CHARACTER_HEIGHT);
+                collisions[1] <= collision(test_x, test_y, CHARACTER_WIDTH, CHARACTER_HEIGHT, 
+                    wxother2, wyother2, CHARACTER_WIDTH, CHARACTER_HEIGHT);
+                collisions[2] <= collision(test_x, test_y, CHARACTER_WIDTH, CHARACTER_HEIGHT, 
+                    wxother3, wyother3, CHARACTER_WIDTH, CHARACTER_HEIGHT);
                 wait_for_collisions <= 0;
+            
             // === STEP 3: Handle collision response ===
             end else begin
-                if (move_allowed) begin
+                if (collisions == 3'b000) begin
                     // Update character position
                     x_pos <= test_x;
                     y_pos <= test_y;
@@ -84,7 +116,6 @@ module charactermovement #(
                 
                 // Reset flags regardless of whether move was allowed
                 test_active <= 0;
-                wait_for_collisions <= 1;
             end
         end
     end
@@ -96,10 +127,15 @@ module charactermovement #(
 endmodule
 
 
-module projectilemovement (
+module projectilemovement
+#(
+    parameter LIFETIME = 100
+)
+ (
     input btnC,
     input debouncingclock,
     input [1:0] chardirection,
+    input [1:0] currentcharacter,
     input [9:0] xcharacter,
     input [9:0] ycharacter,
     
@@ -154,6 +190,7 @@ initial begin
     projectileactive = 0;
 end
 
+reg [7:0] lifetime_counter = 0;
 reg projectilestart = 0;
 reg prev_btnC = 0;
 reg wait_for_collisions = 0;
@@ -196,19 +233,24 @@ always @ (posedge debouncingclock) begin
         collisions <= 4'b0000;
         projectilestart <= 0;
         wait_for_collisions <= 1;
+        lifetime_counter <= 0;
         
     end else if (projectileactive) begin
-        if (wait_for_collisions) begin
+        lifetime_counter <= lifetime_counter + 1;
+        
+        if (lifetime_counter == LIFETIME) begin
+            projectileactive <= 1'b0;
+        end else if (wait_for_collisions) begin
             // 0: mage 1: gunman 2: swordsman 3: fistman
             // check for collisions
             collisions[0] <= collision(xmage, ymage, CHARACTER_WIDTH, CHARACTER_HEIGHT, 
-                xprojectile, yprojectile, PROJECTILE_WIDTH, PROJECTILE_HEIGHT);
+                xprojectile, yprojectile, PROJECTILE_WIDTH, PROJECTILE_HEIGHT) & ~(currentcharacter == 2'b00);
             collisions[1] <= collision(xgunman, ygunman, CHARACTER_WIDTH, CHARACTER_HEIGHT, 
-                xprojectile, yprojectile, PROJECTILE_WIDTH, PROJECTILE_HEIGHT);
+                xprojectile, yprojectile, PROJECTILE_WIDTH, PROJECTILE_HEIGHT) & ~(currentcharacter == 2'b01);
             collisions[2] <= collision(xswordman, yswordman, CHARACTER_WIDTH, CHARACTER_HEIGHT, 
-                xprojectile, yprojectile, PROJECTILE_WIDTH, PROJECTILE_HEIGHT);
+                xprojectile, yprojectile, PROJECTILE_WIDTH, PROJECTILE_HEIGHT) & ~(currentcharacter == 2'b10);
             collisions[3] <= collision(xfistman, yfistman, CHARACTER_WIDTH, CHARACTER_HEIGHT, 
-                xprojectile, yprojectile, PROJECTILE_WIDTH, PROJECTILE_HEIGHT);
+                xprojectile, yprojectile, PROJECTILE_WIDTH, PROJECTILE_HEIGHT) & ~(currentcharacter == 2'b11);
             
             wait_for_collisions <= 0;
         end else begin                       
@@ -250,53 +292,72 @@ always @ (posedge debouncingclock) begin
         end
     end
 end
-
 endmodule
 
 module healthmanager(
     input debouncingclock,
+    input reset,
     input [15:0] collisions, // 16-bit register representing collisions for 4 characters over 4 intervals
+    input [15:0] ult_collisions,
     output reg [5:0] healthmage,
     output reg [5:0] healthgunman,
     output reg [5:0] healthswordman,
     output reg [5:0] healthfistman
 );
 
-    // Holds the count of collisions for each character
-    wire [3:0] mage_hits;
-    wire [3:0] gunman_hits;
-    wire [3:0] swordman_hits;
-    wire [3:0] fistman_hits;
     
+  
+    reg [15:0] prev_collisions, prev_ult_collisions;
+    
+    wire [15:0] new_hits = collisions & ~prev_collisions;
+    wire [15:0] new_ult_hits = ult_collisions & ~prev_ult_collisions;
+  
     initial begin // initialise health
         healthmage = {2'b00, 4'd12};     // ID=00, health=10
         healthgunman = {2'b01, 4'd12};   // ID=01, health=10
         healthswordman = {2'b10, 4'd15}; // ID=10, health=10
         healthfistman = {2'b11, 4'd15};  // ID=11, health=10
+        prev_collisions = 0;
+        prev_ult_collisions = 0;
     end
-
-    reg [15:0] prev_collisions;
-    wire [15:0] new_hits = collisions & ~prev_collisions; // to prevent double counting due to clock cycles difference
+    
+    wire [3:0] damagemage = new_hits[0] + new_hits[4] + new_hits[8] + new_hits[12] + 
+                            ((new_ult_hits[0] + new_ult_hits[4] + new_ult_hits[8] + new_ult_hits[12]) << 1);
+    
+    wire [3:0] damagegunman = new_hits[1] + new_hits[5] + new_hits[9] + new_hits[13] + 
+                            ((new_ult_hits[1] + new_ult_hits[5] + new_ult_hits[9] + new_ult_hits[13]) << 1);
+    
+    wire [3:0] damageswordman = new_hits[2] + new_hits[6] + new_hits[10] + new_hits[14] + 
+                            ((new_ult_hits[2] + new_ult_hits[6] + new_ult_hits[10] + new_ult_hits[14]) << 1);
+                                
+    wire [3:0] damagefistman = new_hits[3] + new_hits[7] + new_hits[11] + new_hits[15] + 
+                            ((new_ult_hits[3] + new_ult_hits[7] + new_ult_hits[11] + new_ult_hits[15]) << 1);                           
     
     always @ (posedge debouncingclock) begin
-        // Deduct health for each character
-        healthmage <= {healthmage[5:4],
-                      (healthmage[3:0] == 0) ? 4'd0 : 
-                      healthmage[3:0] - (new_hits[0] | new_hits[4] | new_hits[8] | new_hits[12])};
-                      
-        healthgunman <= {healthgunman[5:4], 
-                        (healthgunman[3:0] == 0) ? 4'd0 : 
-                        healthgunman[3:0] - (new_hits[1] | new_hits[5] | new_hits[9] | new_hits[13])};
-                        
-        healthswordman <= {healthswordman[5:4], 
-                          (healthswordman[3:0] == 0) ? 4'd0 : 
-                          healthswordman[3:0] - (new_hits[2] | new_hits[6] | new_hits[10] | new_hits[14])};
+        
+        if (reset) begin
+            healthmage <= {2'b00, 4'd12};     // ID=00, health=10
+            healthgunman <= {2'b01, 4'd12};   // ID=01, health=10
+            healthswordman <= {2'b10, 4'd15}; // ID=10, health=10
+            healthfistman <= {2'b11, 4'd15};  // ID=11, health=10
+        end else begin
+            // Deduct health for each character
+            healthmage <= {healthmage[5:4],
+                          (damagemage >= healthmage[3:0]) ? 4'd0 : healthmage[3:0] - damagemage};
                           
-        healthfistman <= {healthfistman[5:4], 
-                         (healthfistman[3:0] == 0) ? 4'd0 : 
-                         healthfistman[3:0] - (new_hits[3] | new_hits[7] | new_hits[11] | new_hits[15])};
-                     
+            healthgunman <= {healthgunman[5:4], 
+                            (damagegunman >= healthgunman[3:0]) ? 4'd0 : healthgunman[3:0] - damagegunman};
+                            
+            healthswordman <= {healthswordman[5:4], 
+                              (damageswordman >= healthswordman[3:0]) ? 4'd0 : healthswordman[3:0] - damageswordman};
+                              
+            healthfistman <= {healthfistman[5:4], 
+                             (damagefistman >= healthfistman[3:0]) ? 4'd0 : healthfistman[3:0] - damagefistman};
+        end
+        
         prev_collisions <= collisions;
+        prev_ult_collisions <= ult_collisions;
     end
+    
 endmodule
 

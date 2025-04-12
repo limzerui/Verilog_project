@@ -149,33 +149,6 @@ module mageprojectile_bram (
     end
 endmodule
 
-module mageprojectileultimate_bram (
-    input clk,
-    input [9:0] x,  // X-coordinate
-    input [9:0] y,  // Y-coordinate
-    input [1:0] mageprojectiledirection,
-    output reg [17:0] pixel_data
-);
-
-    // Declare a memory array for 400 pixels (20x20 = 400 entries, each 16-bits)
-    reg [17:0] memory [0:1599]; 
-
-    // Initialize memory with pixel data from a file 
-    initial begin
-        $readmemb("MageProjectileUltimate.mem", memory);  // Load memory from file
-    end
-
-    wire [10:0] addr; // 11-bit address for 400 entries (20x20 sprite)
-    assign addr = (y * 20) + x + mageprojectiledirection*400;
-
-    always @ (posedge clk) begin
-        if (x < 20 && y < 20)
-            pixel_data <= memory[addr];  // Fetch pixel data from memory
-        else
-            pixel_data <= 18'b000000000000000001; // Outside bounds (black)
-    end
-endmodule
-
 // GUNMAN PROJECTILE IMAGE
 //////////////////////////////////////////////////////////////////////////////////
 
@@ -193,33 +166,6 @@ module gunmanprojectile_bram (
     // Initialize memory with pixel data from a file 
     initial begin
         $readmemb("GunmanProjectile.mem", memory);  // Load memory from file
-    end
-
-    wire [10:0] addr; // 11-bit address for 400 entries (20x20 sprite)
-    assign addr = (y * 20) + x + gunmanprojectiledirection*400;
-
-    always @ (posedge clk) begin
-        if (x < 20 && y < 20)
-            pixel_data <= memory[addr];  // Fetch pixel data from memory
-        else
-            pixel_data <= 18'b000000000000000001; // Outside bounds (black)
-    end
-endmodule
-
-module gunmanprojectileultimate_bram (
-    input clk,
-    input [9:0] x,  // X-coordinate
-    input [9:0] y,  // Y-coordinate
-    input [1:0] gunmanprojectiledirection,
-    output reg [17:0] pixel_data
-);
-
-    // Declare a memory array for 400 pixels (20x20 = 400 entries, each 16-bits)
-    reg [17:0] memory [0:1599]; 
-
-    // Initialize memory with pixel data from a file 
-    initial begin
-        $readmemb("GunmanProjectileUltimate.mem", memory);  // Load memory from file
     end
 
     wire [10:0] addr; // 11-bit address for 400 entries (20x20 sprite)
@@ -263,33 +209,6 @@ module fistmanprojectile_bram (
     end
 endmodule
 
-module fistmanprojectileultimate_bram (
-    input clk,
-    input [9:0] x,  // X-coordinate
-    input [9:0] y,  // Y-coordinate
-    input [1:0] fistmanprojectiledirection,
-    output reg [17:0] pixel_data
-);
-
-    // Declare a memory array for 400 pixels (20x20 = 400 entries, each 16-bits)
-    reg [17:0] memory [0:1599]; 
-
-    // Initialize memory with pixel data from a file 
-    initial begin
-        $readmemb("FistmanProjectileUltimate.mem", memory);  // Load memory from file
-    end
-
-    wire [10:0] addr; // 11-bit address for 400 entries (20x20 sprite)
-    assign addr = (y * 20) + x + fistmanprojectiledirection*400;
-
-    always @ (posedge clk) begin
-        if (x < 20 && y < 20)
-            pixel_data <= memory[addr];  // Fetch pixel data from memory
-        else
-            pixel_data <= 18'b000000000000000001; // Outside bounds (black)
-    end
-endmodule
-
 //SWORDMAN PROJECTILE IMAGE
 //////////////////////////////////////////////////////////////////////////////////
 
@@ -307,33 +226,6 @@ module swordmanprojectile_bram (
     // Initialize memory with pixel data from a file 
     initial begin
         $readmemb("SwordmanProjectile.mem", memory);  // Load memory from file
-    end
-
-    wire [10:0] addr; // 11-bit address for 400 entries (20x20 sprite)
-    assign addr = (y * 20) + x + swordmanprojectiledirection*400;
-
-    always @ (posedge clk) begin
-        if (x < 20 && y < 20)
-            pixel_data <= memory[addr];  // Fetch pixel data from memory
-        else
-            pixel_data <= 18'b000000000000000001; // Outside bounds (black)
-    end
-endmodule
-
-module swordmanprojectileultimate_bram (
-    input clk,
-    input [9:0] x,  // X-coordinate
-    input [9:0] y,  // Y-coordinate
-    input [1:0] swordmanprojectiledirection,
-    output reg [17:0] pixel_data
-);
-
-    // Declare a memory array for 400 pixels (20x20 = 400 entries, each 16-bits)
-    reg [17:0] memory [0:1599]; 
-
-    // Initialize memory with pixel data from a file 
-    initial begin
-        $readmemb("SwordmanProjectileUltimate.mem", memory);  // Load memory from file
     end
 
     wire [10:0] addr; // 11-bit address for 400 entries (20x20 sprite)
@@ -372,13 +264,14 @@ module battlearena_bram (
     end
 endmodule
 
-module tombstone_bram(
+module tombstone_bram (
     input clk,
     input [9:0] x,  // X-coordinate
     input [9:0] y,  // Y-coordinate
     output reg [17:0] pixel_data
 );
 
+    // Declare a memory array for 400 pixels (20x20 = 400 entries, each 16-bits)
     reg [17:0] memory [0:399]; 
 
     // Initialize memory with pixel data from a file 
@@ -386,10 +279,13 @@ module tombstone_bram(
         $readmemb("tombstone.mem", memory);  // Load memory from file
     end
 
-    wire [8:0] addr; // 11-bit address for 400 entries (20x20 sprite)
+    wire [10:0] addr; // 11-bit address for 400 entries (20x20 sprite)
     assign addr = (y * 20) + x;
 
     always @ (posedge clk) begin
+        if (x < 20 && y < 20)
             pixel_data <= memory[addr];  // Fetch pixel data from memory
+        else
+            pixel_data <= 18'b000000000000000001; // Outside bounds (black)
     end
 endmodule

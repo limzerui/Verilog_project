@@ -8,16 +8,16 @@ module display_character_and_health(
     output [3:0] an,
     output [15:0] led,
     output [7:0] JB,
-    output p1_clear_ult, p2_clear_ult
+    output reg p1_clear_ult, p2_clear_ult
 );
-
-    // Extract player 1 data
-    wire [1:0] player1_character = health_data[11:10];
-    wire [3:0] player1_health = health_data[9:6];
         
+    // Extract player 1 data
+    wire [1:0] player1_character = health_data[5:4];
+    wire [3:0] player1_health = health_data[3:0];
+    
     // Extract player 2 data
-    wire [1:0] player2_character = health_data[5:4];
-    wire [3:0] player2_health = health_data[3:0];
+    wire [1:0] player2_character = health_data[11:10];
+    wire [3:0] player2_health = health_data[9:6];
 
     // Clock generation for OLED
     wire clk6p25m;
@@ -131,8 +131,32 @@ module display_character_and_health(
     
     wire p1_ult_ready;
     wire p2_ult_ready;
-    assign p1_clear_ult = keyboard_data[8] & p1_ult_ready;
-    assign p2_clear_ult = keyboard_data[3] & p2_ult_ready;
+//    assign p1_clear_ult = keyboard_data[3] & p1_ult_ready;
+//    assign p2_clear_ult = keyboard_data[8] & p2_ult_ready;
+    
+    reg [31:0] p1_wait_counter = 0;
+    reg [31:0] p2_wait_counter = 0;
+    
+    always @(posedge clk) begin
+        if (p1_wait_counter > 0) begin
+            p1_wait_counter <= p1_wait_counter - 1;
+        end else if (keyboard_data[3] & p1_ult_ready) begin
+            p1_clear_ult <= 1;
+            p1_wait_counter <= 200000;
+        end else begin
+            p1_clear_ult <= 0;
+        end
+                    
+        if (p2_wait_counter > 0) begin
+            p2_wait_counter <= p2_wait_counter - 1;
+        end else if (keyboard_data[8] & p2_ult_ready) begin
+            p2_clear_ult <= 1;
+            p2_wait_counter <= 200000;
+        end else begin
+            p2_clear_ult <= 0;
+        end
+    end
+    
         
     dual_player_led_control lc (
         .clk(clk),

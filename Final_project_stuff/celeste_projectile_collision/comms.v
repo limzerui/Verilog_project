@@ -30,10 +30,10 @@ module get_required_data (
     );
     
     assign keyboard_data = raw_keyboard_data & 
-            (p1_clear_ult ? 10'b11111_11111 : 10'b10111_11111) &
-            (p2_clear_ult ? 10'b11111_11111 : 10'b11111_10111);
+            (p1_clear_ult ? 10'b11111_11111 : 10'b11111_10111) &
+            (p2_clear_ult ? 10'b11111_11111 : 10'b10111_11111);
     
-    wire [11:0] data_to_transmit = ~master ? {1'b0, keyboard_data[9:5], 1'b0, keyboard_data[4:0]} : health_data_in;
+    wire [11:0] data_to_transmit = ~master ? {1'b1, keyboard_data[9:5], 1'b0, keyboard_data[4:0]} : health_data_in;
 
     kb_transmit kb_tx1(
         .tx_clk(clk_1kHz),
@@ -47,16 +47,18 @@ module get_required_data (
     assign other_health_data = ~master ? data_received : 12'b0000_0000_0000;
     
     kb_receive kb_rx1(
+        .receiving_health(~master),
         .rx_clk(clk),
         .rx_pins(JXADC),
         .keyboard_data(data_received)
     );
     
-    assign all_keyboard_data = {keyboard_data, other_keyboard_data[10:6], other_keyboard_data[4:0]};
+    assign all_keyboard_data = {other_keyboard_data[10:6], other_keyboard_data[4:0], keyboard_data};
 
 endmodule
 
 module kb_receive(
+    input receiving_health,
     input rx_clk,
     input [7:0] rx_pins,
     output reg [11:0] keyboard_data
@@ -66,15 +68,16 @@ module kb_receive(
     reg prev_clk_pin = 0;
     reg [1:0] state = 0;
     reg [31:0] counter = 0;
-
+    
     always @(posedge rx_clk) begin
         case (state)
-            0: begin
+            0: begin // clock edge rise
                 if (prev_clk_pin == 1'b0 && rx_pins[0] == 1'b1) begin
                     state <= 1;
                     counter <= 0;
                 end
             end
+            
             1: begin
                 counter <= counter + 1;
                 if (counter >= 49999) begin
@@ -85,13 +88,13 @@ module kb_receive(
                 data <= rx_pins[7:1];
                 state <= 3;
             end
+            
             3: begin
-                if (data[6]) begin
+                if ((~receiving_health & data[5]) || (receiving_health & data[4])) begin
                     keyboard_data <= {keyboard_data[11:6], data[5:0]};
                 end else begin
                     keyboard_data <= {data[5:0], keyboard_data[5:0]};
                 end
-                
                 state <= 0;
             end
         endcase
@@ -122,7 +125,7 @@ module kb_transmit(
                 state <= 1;
             end
             1: begin
-                data <= {1'b1, keyboard_data[5:0]};
+                data <= {1'b0, keyboard_data[5:0]};
                 state <= 0;
             end
         endcase

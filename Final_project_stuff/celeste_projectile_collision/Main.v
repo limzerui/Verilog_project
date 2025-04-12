@@ -16,8 +16,8 @@ module Main(
 wire clk6p25m;
 flexible_clock_divider dut0 (clk, 32'd7, clk6p25m);
 
-wire debouncingclock1;
-flexible_clock_divider dut1 (clk, 32'd100000, debouncingclock1); //1ms
+wire debouncingclock;
+flexible_clock_divider dut1 (clk, 32'd100000, debouncingclock); //1ms
 wire debouncingclock2;
 flexible_clock_divider dut2 (clk, 32'd100000, debouncingclock2); //1ms
 wire debouncingclock3;
@@ -58,7 +58,6 @@ vga_display vd1(
     vgaRed, vgaGreen, vgaBlue
 );
 
-
 wire [9:0] xmage;
 wire [9:0] ymage;
 wire [9:0] xgunman;
@@ -77,6 +76,15 @@ wire [9:0] yswordmanprojectile;
 wire [9:0] xfistmanprojectile;
 wire [9:0] yfistmanprojectile;
 
+wire [9:0] ult_xmageprojectile;
+wire [9:0] ult_ymageprojectile;
+wire [9:0] ult_xgunmanprojectile;
+wire [9:0] ult_ygunmanprojectile;
+wire [9:0] ult_xswordmanprojectile;
+wire [9:0] ult_yswordmanprojectile;
+wire [9:0] ult_xfistmanprojectile;
+wire [9:0] ult_yfistmanprojectile;
+
 wire [1:0] magedirection; //up, down, left, right
 wire [1:0] gunmandirection;
 wire [1:0] swordmandirection;
@@ -87,36 +95,30 @@ wire [1:0] gunmanprojectiledirection;
 wire [1:0] swordmanprojectiledirection;
 wire [1:0] fistmanprojectiledirection;
 
+wire [1:0] ult_mageprojectiledirection; //up, down, left, right
+wire [1:0] ult_gunmanprojectiledirection;
+wire [1:0] ult_swordmanprojectiledirection;
+wire [1:0] ult_fistmanprojectiledirection;
+
 wire mageprojectileactive;
 wire gunmanprojectileactive;
 wire swordmanprojectileactive;
 wire fistmanprojectileactive;
 
-// Collision detection signals
-reg [9:0] test_x;
-reg [9:0] test_y;
-reg [1:0] character_to_move;
-wire move_allowed;
-
-// Character test positions
-wire [9:0] mage_test_x;
-wire [9:0] mage_test_y;
-wire mage_test_active;
-wire [9:0] gunman_test_x;
-wire [9:0] gunman_test_y; 
-wire gunman_test_active;
-wire [9:0] swordman_test_x;
-wire [9:0] swordman_test_y;
-wire swordman_test_active;
-wire [9:0] fistman_test_x;
-wire [9:0] fistman_test_y;
-wire fistman_test_active;
+wire ult_mageprojectileactive;
+wire ult_gunmanprojectileactive;
+wire ult_swordmanprojectileactive;
+wire ult_fistmanprojectileactive;
 
 // Character hit signals
 wire [3:0] collisions0;
 wire [3:0] collisions1;
 wire [3:0] collisions2;
 wire [3:0] collisions3;
+wire [3:0] ult_collisions0;
+wire [3:0] ult_collisions1;
+wire [3:0] ult_collisions2;
+wire [3:0] ult_collisions3;
 
 wire [5:0] healthmage;
 wire [5:0] healthgunman;
@@ -179,79 +181,32 @@ display_character_and_health ch1(
     .p2_clear_ult(p2_clear_ult)
 );
 
-// Instantiate the collision detector
-CollisionDetector collision_detector (
-    .xmage(xmage),
-    .ymage(ymage),
-    .xgunman(xgunman),
-    .ygunman(ygunman),
-    .xswordman(xswordman),
-    .yswordman(yswordman),
-    .xfistman(xfistman),
-    .yfistman(yfistman),
-    
-    .CHARACTER_WIDTH(CHARACTER_WIDTH),
-    .CHARACTER_HEIGHT(CHARACTER_HEIGHT),
-    .test_x(test_x),
-    .test_y(test_y),
-    .character_to_move(character_to_move),
-    
-    .move_allowed(move_allowed)
-);
-
-
-// Collision detection multiplexer (add this before the character movement modules)
-always @(*) begin
-    if (mage_test_active) begin
-        test_x <= mage_test_x;
-        test_y <= mage_test_y;
-        character_to_move <= 2'b00;
-    end
-    else if (gunman_test_active) begin
-        test_x <= gunman_test_x;
-        test_y <= gunman_test_y;
-        character_to_move <= 2'b01;
-    end
-    else if (swordman_test_active) begin
-        test_x <= swordman_test_x;
-        test_y <= swordman_test_y;
-        character_to_move <= 2'b10;
-    end
-    else if (fistman_test_active) begin
-        test_x <= fistman_test_x;
-        test_y <= fistman_test_y;
-        character_to_move <= 2'b11;
-    end
-    else begin
-        test_x <= 0;
-        test_y <= 0;
-        character_to_move <= 2'b00;
-    end
-end
-
 charactermovement #(
-    .startx(20),
-    .starty(20)
+    .startx(60),
+    .starty(40)
 ) mage1 (
-    .debouncingclock(debouncingclock1),
+    .debouncingclock(debouncingclock),
     .btnU(all_keyboard_data[2:0] == 3'b001),
     .btnD(all_keyboard_data[2:0] == 3'b011),
     .btnL(all_keyboard_data[2:0] == 3'b010),
     .btnR(all_keyboard_data[2:0] == 3'b100),
     .wxcharacter(xmage),
     .wycharacter(ymage),
-    .move_allowed(move_allowed),    
+    .wxother1(xgunman),
+    .wyother1(ygunman),
+    .wxother2(xfistman),
+    .wyother2(yfistman),
+    .wxother3(xswordman),
+    .wyother3(yswordman),
     .chardirection(magedirection),
     .xcharacter(xmage),
     .ycharacter(ymage),
-    .test_x(mage_test_x),
-    .test_y(mage_test_y),
-    .test_active(mage_test_active)
+    .reset(btnC)
 );
 
 charactermovement #(
-    .startx(100),
-    .starty(20)
+    .startx(240),
+    .starty(40)
 ) gunman1 (
     .debouncingclock(debouncingclock2),
     .btnU(all_keyboard_data[7:5] == 3'b001),
@@ -260,18 +215,21 @@ charactermovement #(
     .btnR(all_keyboard_data[7:5] == 3'b100),
     .wxcharacter(xgunman),
     .wycharacter(ygunman),
-    .move_allowed(move_allowed),
+    .wxother1(xmage),
+    .wyother1(ymage),
+    .wxother2(xfistman),
+    .wyother2(yfistman),
+    .wxother3(xswordman),
+    .wyother3(yswordman),
     .chardirection(gunmandirection),
     .xcharacter(xgunman),
     .ycharacter(ygunman),
-    .test_x(gunman_test_x),
-    .test_y(gunman_test_y),
-    .test_active(gunman_test_active)
+    .reset(btnC)
 );
 
 charactermovement #(
-    .startx(20),
-    .starty(70)
+    .startx(60),
+    .starty(180)
 ) swordman1 (
     .debouncingclock(debouncingclock3),
     .btnU(all_keyboard_data[12:10] == 3'b001),
@@ -280,18 +238,21 @@ charactermovement #(
     .btnR(all_keyboard_data[12:10] == 3'b100),
     .wxcharacter(xswordman),
     .wycharacter(yswordman),
-    .move_allowed(move_allowed),
+    .wxother1(xgunman),
+    .wyother1(ygunman),
+    .wxother2(xfistman),
+    .wyother2(yfistman),
+    .wxother3(xmage),
+    .wyother3(ymage),
     .chardirection(swordmandirection),
     .xcharacter(xswordman),
     .ycharacter(yswordman),
-    .test_x(swordman_test_x),
-    .test_y(swordman_test_y),
-    .test_active(swordman_test_active)
+    .reset(btnC)
 );
 
 charactermovement #(
-    .startx(100),
-    .starty(100)
+    .startx(240),
+    .starty(180)
 ) fistman1 (
     .debouncingclock(debouncingclock4),
     .btnU(all_keyboard_data[17:15] == 3'b001),
@@ -300,19 +261,23 @@ charactermovement #(
     .btnR(all_keyboard_data[17:15] == 3'b100),
     .wxcharacter(xfistman),
     .wycharacter(yfistman),
-    .move_allowed(move_allowed),
+    .wxother1(xgunman),
+    .wyother1(ygunman),
+    .wxother2(xmage),
+    .wyother2(ymage),
+    .wxother3(xswordman),
+    .wyother3(yswordman),
     .chardirection(fistmandirection),
     .xcharacter(xfistman),
     .ycharacter(yfistman),
-    .test_x(fistman_test_x),
-    .test_y(fistman_test_y),
-    .test_active(fistman_test_active)
+    .reset(btnC)
 );
 
-projectilemovement mage2(
-    .btnC(all_keyboard_data[4]),
+projectilemovement #(.LIFETIME(100)) mage2(
+    .btnC(all_keyboard_data[4]), // todo change back
     .debouncingclock(debouncingclock5),
     .chardirection(magedirection),
+    .currentcharacter(2'b00),
     .xcharacter(xmage),
     .ycharacter(ymage),
     .projectiledirection(mageprojectiledirection),
@@ -330,10 +295,33 @@ projectilemovement mage2(
     .collisions(collisions0)
 );
 
-projectilemovement gunman2(
+projectilemovement #(.LIFETIME(100)) mage3(
+    .btnC(all_keyboard_data[3]), // todo change back
+    .debouncingclock(debouncingclock5),
+    .chardirection(magedirection),
+    .currentcharacter(2'b00),
+    .xcharacter(xmage),
+    .ycharacter(ymage),
+    .projectiledirection(ult_mageprojectiledirection),
+    .xprojectile(ult_xmageprojectile),
+    .yprojectile(ult_ymageprojectile),
+    .projectileactive(ult_mageprojectileactive),
+    .xmage(xmage),
+    .ymage(ymage),
+    .xgunman(xgunman),
+    .ygunman(ygunman),
+    .xswordman(xswordman),
+    .yswordman(yswordman),
+    .xfistman(xfistman),
+    .yfistman(yfistman),
+    .collisions(ult_collisions0)
+);
+
+projectilemovement #(.LIFETIME(150)) gunman2(
     .btnC(all_keyboard_data[9]),
     .debouncingclock(debouncingclock6),
     .chardirection(gunmandirection),
+    .currentcharacter(2'b01),
     .xcharacter(xgunman),
     .ycharacter(ygunman),
     .projectiledirection(gunmanprojectiledirection),
@@ -351,10 +339,33 @@ projectilemovement gunman2(
     .collisions(collisions1)
 );
 
-projectilemovement swordman2(
+projectilemovement #(.LIFETIME(150)) gunman3(
+    .btnC(all_keyboard_data[8]),
+    .debouncingclock(debouncingclock6),
+    .chardirection(gunmandirection),
+    .currentcharacter(2'b01),
+    .xcharacter(xgunman),
+    .ycharacter(ygunman),
+    .projectiledirection(ult_gunmanprojectiledirection),
+    .xprojectile(ult_xgunmanprojectile),
+    .yprojectile(ult_ygunmanprojectile),
+    .projectileactive(ult_gunmanprojectileactive),
+    .xmage(xmage),
+    .ymage(ymage),
+    .xgunman(xgunman),
+    .ygunman(ygunman),
+    .xswordman(xswordman),
+    .yswordman(yswordman),
+    .xfistman(xfistman),
+    .yfistman(yfistman),
+    .collisions(ult_collisions1)
+);
+
+projectilemovement #(.LIFETIME(100)) swordman2(
     .btnC(all_keyboard_data[14]),
     .debouncingclock(debouncingclock7),
     .chardirection(swordmandirection),
+    .currentcharacter(2'b10),
     .xcharacter(xswordman),
     .ycharacter(yswordman),
     .projectiledirection(swordmanprojectiledirection),
@@ -372,10 +383,33 @@ projectilemovement swordman2(
     .collisions(collisions2)
 );
 
-projectilemovement fistman2(
+projectilemovement #(.LIFETIME(100)) swordman3(
+    .btnC(all_keyboard_data[13]),
+    .debouncingclock(debouncingclock7),
+    .chardirection(swordmandirection),
+    .currentcharacter(2'b10),
+    .xcharacter(xswordman),
+    .ycharacter(yswordman),
+    .projectiledirection(ult_swordmanprojectiledirection),
+    .xprojectile(ult_xswordmanprojectile),
+    .yprojectile(ult_yswordmanprojectile),
+    .projectileactive(ult_swordmanprojectileactive),
+    .xmage(xmage),
+    .ymage(ymage),
+    .xgunman(xgunman),
+    .ygunman(ygunman),
+    .xswordman(xswordman),
+    .yswordman(yswordman),
+    .xfistman(xfistman),
+    .yfistman(yfistman),
+    .collisions(ult_collisions2)
+);
+
+projectilemovement #(.LIFETIME(50)) fistman2(
     .btnC(all_keyboard_data[19]),
     .debouncingclock(debouncingclock8),
     .chardirection(fistmandirection),
+    .currentcharacter(2'b11),
     .xcharacter(xfistman),
     .ycharacter(yfistman),
     .projectiledirection(fistmanprojectiledirection),
@@ -393,24 +427,60 @@ projectilemovement fistman2(
     .collisions(collisions3)
 );
 
+projectilemovement #(.LIFETIME(50)) fistman3(
+    .btnC(all_keyboard_data[18]),
+    .debouncingclock(debouncingclock8),
+    .chardirection(fistmandirection),
+    .currentcharacter(2'b11),
+    .xcharacter(xfistman),
+    .ycharacter(yfistman),
+    .projectiledirection(ult_fistmanprojectiledirection),
+    .xprojectile(ult_xfistmanprojectile),
+    .yprojectile(ult_yfistmanprojectile),
+    .projectileactive(ult_fistmanprojectileactive),
+    .xmage(xmage),
+    .ymage(ymage),
+    .xgunman(xgunman),
+    .ygunman(ygunman),
+    .xswordman(xswordman),
+    .yswordman(yswordman),
+    .xfistman(xfistman),
+    .yfistman(yfistman),
+    .collisions(ult_collisions3)
+);
+
 healthmanager healthmanager1(
     .debouncingclock(debouncingclock9),
     .collisions({collisions3, collisions2, collisions1, collisions0}), // 16-bit register representing collisions for 4 characters over 4 intervals
+    .ult_collisions({ult_collisions3, ult_collisions2, ult_collisions1, ult_collisions0}), // 16-bit register representing collisions for 4 characters over 4 intervals
     .healthmage(healthmage),
     .healthgunman(healthgunman),
     .healthswordman(healthswordman),
-    .healthfistman(healthfistman)
+    .healthfistman(healthfistman),
+    .reset(btnC)
 );
 
 wire [17:0] magedata;
 wire [17:0] gunmandata;
 wire [17:0] swordmandata;
 wire [17:0] fistmandata;
+
 wire [17:0] mageprojectiledata;
 wire [17:0] gunmanprojectiledata;
 wire [17:0] swordmanprojectiledata;
 wire [17:0] fistmanprojectiledata;
+
+wire [17:0] ult_mageprojectiledata;
+wire [17:0] ult_gunmanprojectiledata;
+wire [17:0] ult_swordmanprojectiledata;
+wire [17:0] ult_fistmanprojectiledata;
+
 wire [17:0] battlearenadata;
+
+wire [17:0] tombstonedata1;
+wire [17:0] tombstonedata2;
+wire [17:0] tombstonedata3;
+wire [17:0] tombstonedata4;
 
 mage_bram char1 (
     .clk(clk6p25m),
@@ -476,17 +546,44 @@ fistmanprojectile_bram proj4 (
     .pixel_data(fistmanprojectiledata)
 );
 
+mageprojectile_bram proj5 (
+    .clk(clk6p25m),
+    .x(x - ult_xmageprojectile),
+    .y(y - ult_ymageprojectile),
+    .mageprojectiledirection(ult_mageprojectiledirection),
+    .pixel_data(ult_mageprojectiledata)
+);
+
+gunmanprojectile_bram proj6 (
+    .clk(clk6p25m),
+    .x(x - ult_xgunmanprojectile),
+    .y(y - ult_ygunmanprojectile),
+    .gunmanprojectiledirection(ult_gunmanprojectiledirection),
+    .pixel_data(ult_gunmanprojectiledata)
+);
+
+swordmanprojectile_bram proj7 (
+    .clk(clk6p25m),
+    .x(x - ult_xswordmanprojectile),
+    .y(y - ult_yswordmanprojectile),
+    .swordmanprojectiledirection(ult_swordmanprojectiledirection),
+    .pixel_data(ult_swordmanprojectiledata)
+);
+
+fistmanprojectile_bram proj8 (
+    .clk(clk6p25m),
+    .x(x - ult_xfistmanprojectile),
+    .y(y - ult_yfistmanprojectile),
+    .fistmanprojectiledirection(ult_fistmanprojectiledirection),
+    .pixel_data(ult_fistmanprojectiledata)
+);
+
 battlearena_bram battlearena (
     .clk(clk6p25m),
     .x(x),
     .y(y),
     .pixel_data(battlearenadata)
 );
-
-wire [17:0] tombstonedata1;
-wire [17:0] tombstonedata2;
-wire [17:0] tombstonedata3;
-wire [17:0] tombstonedata4;
 
 tombstone_bram tomb1 (
     .clk(clk6p25m),
@@ -525,14 +622,25 @@ always @(posedge clk) begin
         oled_data = tombstonedata3;
     else if (healthfistman[3:0] == 0 && tombstonedata4 != 18'b000000000000000001 && tombstonedata4 !=18'b0)
         oled_data = tombstonedata4;
-    else if (magedata != 18'b000000000000000001 && magedata !=18'b0)
+        
+    else if (healthmage[3:0] != 0 && magedata != 18'b000000000000000001 && magedata !=18'b0)
         oled_data = magedata;
-    else if (gunmandata != 18'b000000000000000001 && gunmandata != 18'b0)
+    else if (healthgunman[3:0] != 0 && gunmandata != 18'b000000000000000001 && gunmandata != 18'b0)
         oled_data = gunmandata;
-    else if (swordmandata != 18'b000000000000000001 && swordmandata != 18'b0)
+    else if (healthswordman[3:0] != 0 && swordmandata != 18'b000000000000000001 && swordmandata != 18'b0)
         oled_data = swordmandata;
-    else if (fistmandata != 18'b000000000000000001 && fistmandata != 18'b0)
+    else if (healthfistman[3:0] != 0 && fistmandata != 18'b000000000000000001 && fistmandata != 18'b0)
         oled_data = fistmandata;
+        
+    else if (ult_mageprojectileactive != 1'b0 && ult_mageprojectiledata != 18'b0000000000000001 && ult_mageprojectiledata != 18'b0)
+         oled_data = {ult_mageprojectiledata << 5, 5'b11111};
+    else if (ult_swordmanprojectileactive != 1'b0 && ult_swordmanprojectiledata != 18'b0000000000000001 && ult_swordmanprojectiledata != 18'b0)
+         oled_data = {ult_swordmanprojectiledata << 5, 5'b11111};
+    else if (ult_gunmanprojectileactive != 1'b0 && ult_gunmanprojectiledata != 18'b0000000000000001 && ult_gunmanprojectiledata != 18'b0)
+         oled_data = {ult_gunmanprojectiledata << 5, 5'b11111};
+    else if (ult_fistmanprojectileactive != 1'b0 && ult_fistmanprojectiledata != 18'b0000000000000001 && ult_fistmanprojectiledata != 18'b0)
+         oled_data = {ult_fistmanprojectiledata << 5, 5'b11111};
+         
     else if (mageprojectileactive != 1'b0 && mageprojectiledata != 18'b0000000000000001 && mageprojectiledata != 18'b0)
         oled_data = mageprojectiledata;
     else if (swordmanprojectileactive != 1'b0 && swordmanprojectiledata != 18'b0000000000000001 && swordmanprojectiledata != 18'b0)
@@ -541,8 +649,9 @@ always @(posedge clk) begin
          oled_data = gunmanprojectiledata;
     else if (fistmanprojectileactive != 1'b0 && fistmanprojectiledata != 18'b0000000000000001 && fistmanprojectiledata != 18'b0)
          oled_data = fistmanprojectiledata;
+         
     else
-        oled_data = battlearenadata;  // Default black background
+        oled_data = battlearenadata;  // Default background
 end
 
 endmodule
