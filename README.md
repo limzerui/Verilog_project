@@ -1,7 +1,6 @@
 # 4 Character Fighting Game on Basys 3 FPGA
 
 A 4 player fighting game implemented on two Basys 3 FPGA boards. Players control characters (Mage, Gunman, Swordman, Fistman) in a VGA-displayed arena, attacking each other with normal and ultimate projectiles. Real-time visuals, audio feedback, and gameplay interactions are handled via hardware modules and inter-board communication.
-![D618CE07-E4A3-4CEA-818C-05F497F0DD0C_1_106_c](https://github.com/user-attachments/assets/c2c9997b-56a8-415f-8cd3-f236e460da12)
 
 
 ![174461079495725179](https://github.com/user-attachments/assets/d01746f1-9a7f-4ac0-8cc1-e4dd7693b3e2)
